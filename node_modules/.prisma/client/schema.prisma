@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model categorias {
+  id             Int       @id @default(autoincrement())
+  empresa_id     Int?
+  nome           String    @db.VarChar(255)
+  produto_codigo String?   @db.VarChar(255)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @db.Timestamptz(6)
+  empresas       empresas? @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+}
+
+model clientes {
+  id            Int       @id @default(autoincrement())
+  nome_completo String    @db.VarChar(255)
+  email         String?   @unique @db.VarChar(255)
+  cpf           String?   @unique @db.VarChar(11)
+  telefone      String?   @db.VarChar(11)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime  @default(now()) @db.Timestamptz(6)
+  empresa_id    Int?
+  empresas      empresas? @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  vendas        vendas[]
+}
+
+model empresas {
+  id            Int          @id @default(autoincrement())
+  nome_fantasia String       @db.VarChar(255)
+  razao_social  String?      @db.VarChar(255)
+  cnpj          String?      @unique @db.VarChar(14)
+  ativo         Boolean?     @default(true)
+  createdAt     DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime     @default(now()) @db.Timestamptz(6)
+  logo_url      String?      @default("") @db.VarChar(300)
+  categorias    categorias[]
+  clientes      clientes[]
+  produtos      produtos[]
+  usuarios      usuarios[]
+  vendas        vendas[]
+}
+
+model produtos {
+  id         Int         @id @default(autoincrement())
+  nome       String      @db.VarChar(255)
+  ativo      Boolean?    @default(true)
+  createdAt  DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime    @default(now()) @db.Timestamptz(6)
+  empresa_id Int?
+  marca      String      @db.VarChar(100)
+  codigo     String?     @db.VarChar(255)
+  empresas   empresas?   @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  variacoes  variacoes[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model produtos_vendas {
+  id             Int       @id @default(autoincrement())
+  venda_id       Int
+  variacao_id    Int
+  quantidade     Int
+  preco_unitario Decimal   @db.Decimal(10, 2)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @db.Timestamptz(6)
+  variacoes      variacoes @relation(fields: [variacao_id], references: [id])
+  vendas         vendas    @relation(fields: [venda_id], references: [id], onDelete: Cascade)
+}
+
+model usuarios {
+  id         Int       @id @default(autoincrement())
+  nome       String    @db.VarChar(255)
+  email      String    @unique @db.VarChar(255)
+  senha      String    @db.VarChar(255)
+  cargo      String?   @default("vendedor") @db.VarChar(50)
+  ativo      Boolean?  @default(true)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime  @default(now()) @db.Timestamptz(6)
+  empresa_id Int?
+  img_url    String?   @default("") @db.VarChar(300)
+  empresas   empresas? @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  vendas     vendas[]
+}
+
+model variacoes {
+  id              Int               @id @default(autoincrement())
+  tamanho         String            @db.VarChar(10)
+  cor             String            @db.VarChar(50)
+  qtd_estoque     Int               @default(0)
+  produto_id      Int?
+  createdAt       DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime          @default(now()) @db.Timestamptz(6)
+  preco_custo     Decimal           @db.Decimal(10, 2)
+  preco_venda     Decimal           @db.Decimal(10, 2)
+  produtos_vendas produtos_vendas[]
+  produtos        produtos?         @relation(fields: [produto_id], references: [id], onDelete: Cascade)
+}
+
+model vendas {
+  id              Int               @id @default(autoincrement())
+  cliente_id      Int?
+  usuario_id      Int?
+  valor_total     Decimal           @default(0.00) @db.Decimal(10, 2)
+  forma_pagamento String            @db.VarChar(50)
+  status          String?           @default("concluida") @db.VarChar(50)
+  createdAt       DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime          @default(now()) @db.Timestamptz(6)
+  empresa_id      Int?
+  produtos_vendas produtos_vendas[]
+  clientes        clientes?         @relation(fields: [cliente_id], references: [id])
+  empresas        empresas?         @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  usuarios        usuarios?         @relation(fields: [usuario_id], references: [id], onDelete: Restrict)
+}
