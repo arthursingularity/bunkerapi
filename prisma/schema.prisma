@@ -29,6 +29,7 @@ model clientes {
   empresa_id    Int?
   empresas      empresas? @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
   vendas        vendas[]
+  servicos      servicos[]
 }
 
 model empresas {
@@ -45,6 +46,7 @@ model empresas {
   produtos      produtos[]
   usuarios      usuarios[]
   vendas        vendas[]
+  servicos      servicos[]
 }
 
 model produtos {
@@ -113,7 +115,27 @@ model vendas {
   updatedAt       DateTime          @default(now()) @db.Timestamptz(6)
   empresa_id      Int?
   produtos_vendas produtos_vendas[]
+  servicos        servicos[]
   clientes        clientes?         @relation(fields: [cliente_id], references: [id])
   empresas        empresas?         @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
   usuarios        usuarios?         @relation(fields: [usuario_id], references: [id], onDelete: Restrict)
+}
+
+model servicos {
+  id          Int       @id @default(autoincrement())
+  descricao   String    @db.VarChar(255)
+  preco       Decimal   @db.Decimal(10, 2)
+  status      String    @default("Pendente") @db.VarChar(50)
+  observacoes String?   @db.Text
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @db.Timestamptz(6)
+  
+  cliente_id  Int
+  clientes    clientes  @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
+  
+  empresa_id  Int?
+  empresas    empresas? @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  
+  venda_id    Int?
+  vendas      vendas?   @relation(fields: [venda_id], references: [id], onDelete: SetNull)
 }

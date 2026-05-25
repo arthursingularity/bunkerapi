@@ -1,7 +1,7 @@
 const { prisma } = require('../config/database');
 
 const registrarVenda = async (req, res) => {
-    const { cliente_id, forma_pagamento, itens } = req.body;
+    const { cliente_id, forma_pagamento, itens, servicos_ids } = req.body;
     const empresa_id = req.user.empresa_id;
     const usuario_id = req.user.id; // Injetado pelo authMiddleware
 
@@ -9,8 +9,11 @@ const registrarVenda = async (req, res) => {
         return res.status(400).json({ erro: 'A forma de pagamento é obrigatória.' });
     }
 
-    if (!itens || itens.length === 0) {
-        return res.status(400).json({ erro: 'A venda precisa conter pelo menos um item.' });
+    const temItens = itens && itens.length > 0;
+    const temServicos = servicos_ids && servicos_ids.length > 0;
+
+    if (!temItens && !temServicos) {
+        return res.status(400).json({ erro: 'A venda precisa conter pelo menos um item ou serviço.' });
     }
 
     try {
@@ -20,50 +23,75 @@ const registrarVenda = async (req, res) => {
             const produtosVendasData = [];
 
             // 1. Validar e baixar estoque de cada variação vendida
-            for (const item of itens) {
-                const { variacao_id, quantidade } = item;
+            if (temItens) {
+                for (const item of itens) {
+                    const { variacao_id, quantidade } = item;
 
-                if (!variacao_id || !quantidade || quantidade <= 0) {
-                    throw new Error('Formato de item inválido. Informe o ID da variação e a quantidade.');
-                }
-
-                // Buscar variação
-                const variacao = await tx.variacoes.findFirst({
-                    where: { id: parseInt(variacao_id) }
-                });
-
-                if (!variacao) {
-                    throw new Error(`Variação de ID ${variacao_id} não encontrada no sistema.`);
-                }
-
-                // Verificar se há estoque disponível
-                if (variacao.qtd_estoque < quantidade) {
-                    throw new Error(`Estoque insuficiente para o item. Estoque disponível: ${variacao.qtd_estoque} unidades.`);
-                }
-
-                const precoUnitario = parseFloat(variacao.preco_venda);
-                const subtotal = precoUnitario * quantidade;
-                totalVenda += subtotal;
-
-                // Salvar dados da relação
-                produtosVendasData.push({
-                    variacao_id: parseInt(variacao_id),
-                    quantidade: parseInt(quantidade),
-                    preco_unitario: precoUnitario
-                });
-
-                // Decrementar o estoque da variação correspondente
-                await tx.variacoes.update({
-                    where: { id: parseInt(variacao_id) },
-                    data: {
-                        qtd_estoque: {
-                            decrement: parseInt(quantidade)
-                        }
+                    if (!variacao_id || !quantidade || quantidade <= 0) {
+                        throw new Error('Formato de item inválido. Informe o ID da variação e a quantidade.');
                     }
-                });
+
+                    // Buscar variação
+                    const variacao = await tx.variacoes.findFirst({
+                        where: { id: parseInt(variacao_id) }
+                    });
+
+                    if (!variacao) {
+                        throw new Error(`Variação de ID ${variacao_id} não encontrada no sistema.`);
+                    }
+
+                    // Verificar se há estoque disponível
+                    if (variacao.qtd_estoque < quantidade) {
+                        throw new Error(`Estoque insuficiente para o item. Estoque disponível: ${variacao.qtd_estoque} unidades.`);
+                    }
+
+                    const precoUnitario = parseFloat(variacao.preco_venda);
+                    const subtotal = precoUnitario * quantidade;
+                    totalVenda += subtotal;
+
+                    // Salvar dados da relação
+                    produtosVendasData.push({
+                        variacao_id: parseInt(variacao_id),
+                        quantidade: parseInt(quantidade),
+                        preco_unitario: precoUnitario
+                    });
+
+                    // Decrementar o estoque da variação correspondente
+                    await tx.variacoes.update({
+                        where: { id: parseInt(variacao_id) },
+                        data: {
+                            qtd_estoque: {
+                                decrement: parseInt(quantidade)
+                            }
+                        }
+                    });
+                }
             }
 
-            // 2. Registrar a venda
+            // 2. Validar cada serviço finalizado
+            if (temServicos) {
+                for (const sId of servicos_ids) {
+                    const servico = await tx.servicos.findFirst({
+                        where: {
+                            id: parseInt(sId),
+                            empresa_id: parseInt(empresa_id)
+                        }
+                    });
+
+                    if (!servico) {
+                        throw new Error(`Serviço de ID ${sId} não encontrado no sistema ou não pertence à sua empresa.`);
+                    }
+
+                    if (servico.status === 'Concluído') {
+                        throw new Error(`O serviço "${servico.descricao}" já consta como Concluído.`);
+                    }
+
+                    const precoServico = parseFloat(servico.preco);
+                    totalVenda += precoServico;
+                }
+            }
+
+            // 3. Registrar a venda
             const novaVenda = await tx.vendas.create({
                 data: {
                     cliente_id: cliente_id ? parseInt(cliente_id) : null,
@@ -92,6 +120,25 @@ const registrarVenda = async (req, res) => {
                     }
                 }
             });
+
+            // 4. Finalizar e vincular serviços à venda
+            if (temServicos) {
+                for (const sId of servicos_ids) {
+                    const serv = await tx.servicos.findUnique({ where: { id: parseInt(sId) } });
+                    const obsNova = serv.observacoes 
+                        ? `${serv.observacoes}\n[Pago via Caixa/PDV na Venda #${novaVenda.id}]` 
+                        : `[Pago via Caixa/PDV na Venda #${novaVenda.id}]`;
+
+                    await tx.servicos.update({
+                        where: { id: parseInt(sId) },
+                        data: {
+                            status: 'Concluído',
+                            venda_id: novaVenda.id,
+                            observacoes: obsNova
+                        }
+                    });
+                }
+            }
 
             return novaVenda;
         });
@@ -123,6 +170,11 @@ const listarVendas = async (req, res) => {
                                 produtos: true
                             }
                         }
+                    }
+                },
+                servicos: {
+                    include: {
+                        clientes: true
                     }
                 },
                 clientes: true
