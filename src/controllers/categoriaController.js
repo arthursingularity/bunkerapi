@@ -85,8 +85,67 @@ const listarCategoriaById = async (req, res) => {
     }
 }
 
+const deletarCategoria = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const empresa_id = req.user.empresa_id;
+
+        const categoria = await prisma.categorias.findFirst({
+            where: { id: parseInt(id), empresa_id }
+        });
+
+        if (!categoria) {
+            return res.status(404).json({ erro: 'Categoria não encontrada.' });
+        }
+
+        await prisma.categorias.delete({
+            where: { id: parseInt(id) }
+        });
+
+        res.json({ mensagem: 'Categoria excluída com sucesso!' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ erro: 'Erro ao excluir categoria.' });
+    }
+};
+
+const deletarCategoriasPorNome = async (req, res) => {
+    try {
+        const { nome } = req.body;
+        const empresa_id = req.user.empresa_id;
+
+        await prisma.categorias.deleteMany({
+            where: { nome, empresa_id }
+        });
+
+        res.json({ mensagem: 'Todas as categorias com este nome foram excluídas!' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ erro: 'Erro ao excluir categorias.' });
+    }
+};
+
+const deletarCategoriasPorCodigo = async (req, res) => {
+    try {
+        const { codigo } = req.params;
+        const empresa_id = req.user.empresa_id;
+
+        await prisma.categorias.deleteMany({
+            where: { produto_codigo: codigo, empresa_id }
+        });
+
+        res.json({ mensagem: 'Associações de categoria removidas para este produto!' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ erro: 'Erro ao desassociar categorias.' });
+    }
+};
+
 module.exports = {
     criarCategoria,
     listarCategorias,
-    listarCategoriaById
+    listarCategoriaById,
+    deletarCategoria,
+    deletarCategoriasPorNome,
+    deletarCategoriasPorCodigo
 };

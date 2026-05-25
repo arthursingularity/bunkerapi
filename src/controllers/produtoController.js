@@ -140,23 +140,49 @@ const atualizarProduto = async (req, res) => {
                 }
             });
 
-            // Se enviou as variações de novo, apagamos as antigas e recriamos as novas
+            // Smart update variations: update existing, create new, delete removed
             if (variacoes) {
-                await tx.variacoes.deleteMany({
+                const existingVariations = await tx.variacoes.findMany({
                     where: { produto_id: parseInt(req.params.id) }
                 });
 
-                if (variacoes.length > 0) {
-                    await tx.variacoes.createMany({
-                        data: variacoes.map(v => ({
-                            tamanho: v.tamanho,
-                            cor: v.cor,
-                            qtd_estoque: v.qtd_estoque || 0,
-                            preco_custo: v.preco_custo,
-                            preco_venda: v.preco_venda,
-                            produto_id: parseInt(req.params.id)
-                        }))
+                const sentIds = variacoes.map(v => v.id).filter(Boolean);
+
+                // 1. Delete variations that are not in the payload
+                const toDelete = existingVariations.filter(ev => !sentIds.includes(ev.id));
+                if (toDelete.length > 0) {
+                    await tx.variacoes.deleteMany({
+                        where: {
+                            id: { in: toDelete.map(d => d.id) }
+                        }
                     });
+                }
+
+                // 2. Update existing or create new variations
+                for (const v of variacoes) {
+                    if (v.id) {
+                        await tx.variacoes.update({
+                            where: { id: parseInt(v.id) },
+                            data: {
+                                tamanho: v.tamanho,
+                                cor: v.cor,
+                                qtd_estoque: parseInt(v.qtd_estoque) || 0,
+                                preco_custo: parseFloat(v.preco_custo),
+                                preco_venda: parseFloat(v.preco_venda)
+                            }
+                        });
+                    } else {
+                        await tx.variacoes.create({
+                            data: {
+                                tamanho: v.tamanho,
+                                cor: v.cor,
+                                qtd_estoque: parseInt(v.qtd_estoque) || 0,
+                                preco_custo: parseFloat(v.preco_custo),
+                                preco_venda: parseFloat(v.preco_venda),
+                                produto_id: parseInt(req.params.id)
+                            }
+                        });
+                    }
                 }
             }
         });
