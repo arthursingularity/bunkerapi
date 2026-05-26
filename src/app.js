@@ -10,6 +10,7 @@ const categoriaRoutes = require('./routes/categoriaRoutes');
 const vendaRoutes = require('./routes/vendaRoutes');
 const clienteRoutes = require('./routes/clienteRoutes');
 const servicoRoutes = require('./routes/servicoRoutes');
+const financeiroRoutes = require('./routes/financeiroRoutes');
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use('/api/categorias', categoriaRoutes);
 app.use('/api/vendas', vendaRoutes);
 app.use('/api/clientes', clienteRoutes);
 app.use('/api/servicos', servicoRoutes);
+app.use('/api/financeiro', financeiroRoutes);
 
 // Rota de teste padrão
 app.get('/', (req, res) => {

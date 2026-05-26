@@ -86,7 +86,7 @@ const registrarVenda = async (req, res) => {
                         throw new Error(`O serviço "${servico.descricao}" já consta como Concluído.`);
                     }
 
-                    const precoServico = parseFloat(servico.preco);
+                    const precoServico = parseFloat(servico.preco_venda || servico.preco);
                     totalVenda += precoServico;
                 }
             }
@@ -135,6 +135,34 @@ const registrarVenda = async (req, res) => {
                             status: 'Concluído',
                             venda_id: novaVenda.id,
                             observacoes: obsNova
+                        }
+                    });
+                }
+            }
+
+            // 5. Registrar movimentação financeira de entrada (Fluxo de Caixa)
+            await tx.movimentacoes_financeiras.create({
+                data: {
+                    tipo: 'entrada',
+                    categoria: 'Venda',
+                    descricao: `Venda via PDV #${novaVenda.id}`,
+                    valor: totalVenda,
+                    forma_pagamento: forma_pagamento,
+                    empresa_id: parseInt(empresa_id),
+                    venda_id: novaVenda.id
+                }
+            });
+
+            // 6. Registrar movimentações de estoque de saída para cada item
+            if (temItens) {
+                for (const item of produtosVendasData) {
+                    await tx.movimentacoes_estoque.create({
+                        data: {
+                            variacao_id: item.variacao_id,
+                            tipo: 'saida',
+                            quantidade: item.quantidade,
+                            motivo: `Venda PDV #${novaVenda.id}`,
+                            venda_id: novaVenda.id
                         }
                     });
                 }
@@ -223,6 +251,30 @@ const excluirVenda = async (req, res) => {
                     }
                 });
             }
+
+            // Deletar movimentações financeiras vinculadas à venda
+            await tx.movimentacoes_financeiras.deleteMany({
+                where: { venda_id: parseInt(id) }
+            });
+
+            // Deletar movimentações de estoque vinculadas à venda
+            await tx.movimentacoes_estoque.deleteMany({
+                where: { venda_id: parseInt(id) }
+            });
+
+            // Deletar contas a receber vinculadas à venda
+            await tx.contas_a_receber.deleteMany({
+                where: { venda_id: parseInt(id) }
+            });
+
+            // Restaurar status dos serviços atrelados a essa venda para Pendente
+            await tx.servicos.updateMany({
+                where: { venda_id: parseInt(id) },
+                data: {
+                    status: 'Pendente',
+                    venda_id: null
+                }
+            });
 
             // Excluir a venda (deleta em cascata produtos_vendas devido a onDelete: Cascade no prisma)
             await tx.vendas.delete({

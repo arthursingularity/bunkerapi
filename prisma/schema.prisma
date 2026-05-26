@@ -16,37 +16,46 @@ model categorias {
   createdAt      DateTime  @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime  @default(now()) @db.Timestamptz(6)
   empresas       empresas? @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+
+  @@index([empresa_id])
 }
 
 model clientes {
-  id            Int       @id @default(autoincrement())
-  nome_completo String    @db.VarChar(255)
-  email         String?   @unique @db.VarChar(255)
-  cpf           String?   @unique @db.VarChar(11)
-  telefone      String?   @db.VarChar(11)
-  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
-  updatedAt     DateTime  @default(now()) @db.Timestamptz(6)
+  id            Int                  @id @default(autoincrement())
+  nome_completo String               @db.VarChar(255)
+  email         String?              @unique @db.VarChar(255)
+  cpf           String?              @unique @db.VarChar(11)
+  telefone      String?              @db.VarChar(11)
+  createdAt     DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime             @default(now()) @db.Timestamptz(6)
   empresa_id    Int?
-  empresas      empresas? @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  empresas      empresas?            @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
   vendas        vendas[]
   servicos      servicos[]
+  contas_receber contas_a_receber[]
+
+  @@index([empresa_id])
+  @@index([nome_completo]) // Otimiza busca de clientes por nome
 }
 
 model empresas {
-  id            Int          @id @default(autoincrement())
-  nome_fantasia String       @db.VarChar(255)
-  razao_social  String?      @db.VarChar(255)
-  cnpj          String?      @unique @db.VarChar(14)
-  ativo         Boolean?     @default(true)
-  createdAt     DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt     DateTime     @default(now()) @db.Timestamptz(6)
-  logo_url      String?      @default("") @db.VarChar(300)
-  categorias    categorias[]
-  clientes      clientes[]
-  produtos      produtos[]
-  usuarios      usuarios[]
-  vendas        vendas[]
-  servicos      servicos[]
+  id                        Int                         @id @default(autoincrement())
+  nome_fantasia             String                      @db.VarChar(255)
+  razao_social              String?                     @db.VarChar(255)
+  cnpj                      String?                     @unique @db.VarChar(14)
+  ativo                     Boolean?                    @default(true)
+  createdAt                 DateTime                    @default(now()) @db.Timestamptz(6)
+  updatedAt                 DateTime                    @default(now()) @db.Timestamptz(6)
+  logo_url                  String?                     @default("") @db.VarChar(300)
+  categorias                categorias[]
+  clientes                  clientes[]
+  produtos                  produtos[]
+  usuarios                  usuarios[]
+  vendas                    vendas[]
+  servicos                  servicos[]
+  contas_pagar              contas_a_pagar[]
+  contas_receber            contas_a_receber[]
+  movimentacoes_financeiras movimentacoes_financeiras[]
 }
 
 model produtos {
@@ -60,9 +69,11 @@ model produtos {
   codigo     String?     @db.VarChar(255)
   empresas   empresas?   @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
   variacoes  variacoes[]
+
+  @@index([empresa_id])
+  @@index([codigo]) // Busca rápida por código de barras/sku
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model produtos_vendas {
   id             Int       @id @default(autoincrement())
   venda_id       Int
@@ -73,6 +84,9 @@ model produtos_vendas {
   updatedAt      DateTime  @default(now()) @db.Timestamptz(6)
   variacoes      variacoes @relation(fields: [variacao_id], references: [id])
   vendas         vendas    @relation(fields: [venda_id], references: [id], onDelete: Cascade)
+
+  @@index([venda_id])
+  @@index([variacao_id])
 }
 
 model usuarios {
@@ -88,43 +102,57 @@ model usuarios {
   img_url    String?   @default("") @db.VarChar(300)
   empresas   empresas? @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
   vendas     vendas[]
+
+  @@index([empresa_id])
 }
 
 model variacoes {
-  id              Int               @id @default(autoincrement())
-  tamanho         String            @db.VarChar(10)
-  cor             String            @db.VarChar(50)
-  qtd_estoque     Int               @default(0)
-  produto_id      Int?
-  createdAt       DateTime          @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime          @default(now()) @db.Timestamptz(6)
-  preco_custo     Decimal           @db.Decimal(10, 2)
-  preco_venda     Decimal           @db.Decimal(10, 2)
-  produtos_vendas produtos_vendas[]
-  produtos        produtos?         @relation(fields: [produto_id], references: [id], onDelete: Cascade)
+  id                    Int                     @id @default(autoincrement())
+  tamanho               String                  @db.VarChar(10)
+  cor                   String                  @db.VarChar(50)
+  qtd_estoque           Int                     @default(0)
+  produto_id            Int?
+  createdAt             DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime                @default(now()) @db.Timestamptz(6)
+  preco_custo           Decimal                 @db.Decimal(10, 2)
+  preco_venda           Decimal                 @db.Decimal(10, 2)
+  produtos_vendas       produtos_vendas[]
+  produtos              produtos?               @relation(fields: [produto_id], references: [id], onDelete: Cascade)
+  movimentacoes_estoque movimentacoes_estoque[]
+
+  @@index([produto_id])
 }
 
 model vendas {
-  id              Int               @id @default(autoincrement())
-  cliente_id      Int?
-  usuario_id      Int?
-  valor_total     Decimal           @default(0.00) @db.Decimal(10, 2)
-  forma_pagamento String            @db.VarChar(50)
-  status          String?           @default("concluida") @db.VarChar(50)
-  createdAt       DateTime          @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime          @default(now()) @db.Timestamptz(6)
-  empresa_id      Int?
-  produtos_vendas produtos_vendas[]
-  servicos        servicos[]
-  clientes        clientes?         @relation(fields: [cliente_id], references: [id])
-  empresas        empresas?         @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
-  usuarios        usuarios?         @relation(fields: [usuario_id], references: [id], onDelete: Restrict)
+  id                        Int                         @id @default(autoincrement())
+  cliente_id                Int?
+  usuario_id                Int?
+  valor_total               Decimal                     @default(0.00) @db.Decimal(10, 2)
+  forma_pagamento           String                      @db.VarChar(50)
+  status                    String?                     @default("concluida") @db.VarChar(50)
+  createdAt                 DateTime                    @default(now()) @db.Timestamptz(6)
+  updatedAt                 DateTime                    @default(now()) @db.Timestamptz(6)
+  empresa_id                Int?
+  produtos_vendas           produtos_vendas[]
+  servicos                  servicos[]
+  clientes                  clientes?                   @relation(fields: [cliente_id], references: [id])
+  empresas                  empresas?                   @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  usuarios                  usuarios?                   @relation(fields: [usuario_id], references: [id], onDelete: Restrict)
+  contas_receber            contas_a_receber[]
+  movimentacoes_financeiras movimentacoes_financeiras[]
+  movimentacoes_estoque     movimentacoes_estoque[]
+
+  @@index([empresa_id, createdAt]) // Índice composto: Relatórios de vendas por período da empresa
+  @@index([cliente_id])
+  @@index([usuario_id])
 }
 
 model servicos {
   id          Int       @id @default(autoincrement())
   descricao   String    @db.VarChar(255)
-  preco       Decimal   @db.Decimal(10, 2)
+  preco       Decimal?  @db.Decimal(10, 2)
+  preco_custo Decimal   @default(0.00) @db.Decimal(10, 2)
+  preco_venda Decimal   @default(0.00) @db.Decimal(10, 2)
   status      String    @default("Pendente") @db.VarChar(50)
   observacoes String?   @db.Text
   createdAt   DateTime  @default(now()) @db.Timestamptz(6)
@@ -138,4 +166,93 @@ model servicos {
   
   venda_id    Int?
   vendas      vendas?   @relation(fields: [venda_id], references: [id], onDelete: SetNull)
+
+  @@index([empresa_id])
+  @@index([cliente_id])
+  @@index([venda_id])
+}
+
+model contas_a_pagar {
+  id               Int       @id @default(autoincrement())
+  descricao        String    @db.VarChar(255)
+  valor            Decimal   @db.Decimal(10, 2)
+  valor_pago       Decimal?  @db.Decimal(10, 2)
+  data_vencimento  DateTime  @db.Timestamptz(6)
+  data_pagamento   DateTime? @db.Timestamptz(6)
+  forma_pagamento  String?   @db.VarChar(50)
+  status           String    @default("Pendente") @db.VarChar(50)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @db.Timestamptz(6)
+  empresa_id       Int?
+  empresas         empresas? @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  movimentacoes_financeiras movimentacoes_financeiras[]
+
+  @@index([empresa_id, data_vencimento]) // Otimiza fluxo de caixa / listagem por vencimento
+  @@index([status])
+}
+
+model contas_a_receber {
+  id               Int       @id @default(autoincrement())
+  descricao        String
+  valor            Decimal   @db.Decimal(10, 2)
+  valor_recebido   Decimal?  @default(0.00) @db.Decimal(10, 2)
+  status           String    @default("Pendente")
+  data_vencimento  DateTime
+  data_recebimento DateTime?
+  forma_pagamento  String?
+  cliente_id       Int?
+  venda_id         Int?
+  empresa_id       Int?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @default(now())
+
+  clientes                  clientes?                   @relation(fields: [cliente_id], references: [id])
+  vendas                    vendas?                     @relation(fields: [venda_id], references: [id])
+  empresas                  empresas?                   @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  movimentacoes_financeiras movimentacoes_financeiras[]
+
+  @@index([empresa_id, data_vencimento]) // Otimiza a tela de recebíveis por período
+  @@index([cliente_id])
+  @@index([venda_id])
+  @@index([status])
+}
+
+model movimentacoes_financeiras {
+  id                Int       @id @default(autoincrement())
+  tipo              String    // entrada | saida
+  categoria         String    // venda, servico, etc.
+  descricao         String?
+  valor             Decimal   @db.Decimal(10, 2)
+  forma_pagamento   String?   // pix, dinheiro, etc.
+  createdAt         DateTime  @default(now())
+  empresa_id        Int
+  venda_id          Int?
+  conta_pagar_id    Int?
+  conta_receber_id  Int?
+
+  empresas         empresas        @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  vendas           vendas?         @relation(fields: [venda_id], references: [id])
+  contas_a_pagar   contas_a_pagar? @relation(fields: [conta_pagar_id], references: [id])
+  contas_a_receber contas_a_receber? @relation(fields: [conta_receber_id], references: [id])
+
+  @@index([empresa_id, createdAt]) // Crucial para extratos financeiros por período
+  @@index([venda_id])
+  @@index([conta_pagar_id])
+  @@index([conta_receber_id])
+}
+
+model movimentacoes_estoque {
+  id          Int      @id @default(autoincrement())
+  variacao_id Int
+  tipo        String   // entrada, saida, ajuste
+  quantidade  Int
+  motivo      String?  // venda, compra, etc.
+  venda_id    Int?
+  createdAt   DateTime @default(now())
+
+  variacoes variacoes @relation(fields: [variacao_id], references: [id], onDelete: Cascade)
+  vendas    vendas?   @relation(fields: [venda_id], references: [id])
+
+  @@index([variacao_id, createdAt]) // Histórico de estoque por produto ordenado por data
+  @@index([venda_id])
 }

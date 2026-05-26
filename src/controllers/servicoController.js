@@ -3,14 +3,17 @@ const { prisma } = require('../config/database');
 // 1. CREATE - Cadastrar Serviço
 const criarServico = async (req, res) => {
     try {
-        const { descricao, preco, status, observacoes, cliente_id } = req.body;
+        const { descricao, preco_custo, preco_venda, status, observacoes, cliente_id } = req.body;
         const empresa_id = req.user.empresa_id;
 
         if (!descricao) {
             return res.status(400).json({ erro: 'A descrição do serviço é obrigatória.' });
         }
-        if (preco === undefined || preco === null) {
-            return res.status(400).json({ erro: 'O preço do serviço é obrigatório.' });
+        if (preco_custo === undefined || preco_custo === null) {
+            return res.status(400).json({ erro: 'O preço de custo do serviço é obrigatório.' });
+        }
+        if (preco_venda === undefined || preco_venda === null) {
+            return res.status(400).json({ erro: 'O preço de venda do serviço é obrigatório.' });
         }
         if (!cliente_id) {
             return res.status(400).json({ erro: 'O cliente é obrigatório para registrar um serviço.' });
@@ -31,7 +34,9 @@ const criarServico = async (req, res) => {
         const novoServico = await prisma.servicos.create({
             data: {
                 descricao,
-                preco: parseFloat(preco),
+                preco: parseFloat(preco_venda),
+                preco_custo: parseFloat(preco_custo),
+                preco_venda: parseFloat(preco_venda),
                 status: status || 'Pendente',
                 observacoes: observacoes || null,
                 cliente_id: parseInt(cliente_id),
@@ -120,7 +125,7 @@ const obterServicoPorId = async (req, res) => {
 
 // 4. UPDATE - Atualizar Serviço
 const atualizarServico = async (req, res) => {
-    const { descricao, preco, status, observacoes, cliente_id } = req.body;
+    const { descricao, preco_custo, preco_venda, status, observacoes, cliente_id } = req.body;
     const empresa_id = req.user.empresa_id;
 
     try {
@@ -138,8 +143,11 @@ const atualizarServico = async (req, res) => {
         if (!descricao) {
             return res.status(400).json({ erro: 'A descrição do serviço é obrigatória.' });
         }
-        if (preco === undefined || preco === null) {
-            return res.status(400).json({ erro: 'O preço do serviço é obrigatório.' });
+        if (preco_custo === undefined || preco_custo === null) {
+            return res.status(400).json({ erro: 'O preço de custo é obrigatório.' });
+        }
+        if (preco_venda === undefined || preco_venda === null) {
+            return res.status(400).json({ erro: 'O preço de venda é obrigatório.' });
         }
         if (!cliente_id) {
             return res.status(400).json({ erro: 'O cliente é obrigatório.' });
@@ -161,7 +169,9 @@ const atualizarServico = async (req, res) => {
             where: { id: parseInt(req.params.id) },
             data: {
                 descricao,
-                preco: parseFloat(preco),
+                preco: parseFloat(preco_venda),
+                preco_custo: parseFloat(preco_custo),
+                preco_venda: parseFloat(preco_venda),
                 status: status || 'Pendente',
                 observacoes: observacoes || null,
                 cliente_id: parseInt(cliente_id)
