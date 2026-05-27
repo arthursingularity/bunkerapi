@@ -224,10 +224,47 @@ const deletarServico = async (req, res) => {
     }
 };
 
+const obterGarantiaPublica = async (req, res) => {
+    try {
+        const servico = await prisma.servicos.findUnique({
+            where: {
+                id: parseInt(req.params.id)
+            },
+            include: {
+                clientes: {
+                    select: {
+                        id: true,
+                        nome_completo: true,
+                        telefone: true
+                    }
+                },
+                empresas: {
+                    select: {
+                        id: true,
+                        nome_fantasia: true,
+                        cnpj: true,
+                        logo_url: true
+                    }
+                }
+            }
+        });
+
+        if (!servico) {
+            return res.status(404).json({ erro: 'Serviço de garantia não encontrado.' });
+        }
+
+        res.json(servico);
+    } catch (error) {
+        console.error('Erro ao buscar garantia pública:', error);
+        res.status(500).json({ erro: 'Erro ao buscar serviço de garantia.' });
+    }
+};
+
 module.exports = {
     criarServico,
     listarServicos,
     obterServicoPorId,
     atualizarServico,
-    deletarServico
+    deletarServico,
+    obterGarantiaPublica
 };
