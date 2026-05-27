@@ -1,7 +1,7 @@
 const { prisma } = require('../config/database');
 
 const registrarVenda = async (req, res) => {
-    const { cliente_id, forma_pagamento, itens, servicos_ids } = req.body;
+    const { cliente_id, forma_pagamento, itens, servicos_ids, desconto } = req.body;
     const empresa_id = req.user.empresa_id;
     const usuario_id = req.user.id; // Injetado pelo authMiddleware
 
@@ -92,12 +92,16 @@ const registrarVenda = async (req, res) => {
             }
 
             // 3. Registrar a venda
+            const valorDesconto = parseFloat(desconto || 0);
+            const valorFinalVenda = Math.max(0, totalVenda - valorDesconto);
+
             const novaVenda = await tx.vendas.create({
                 data: {
                     cliente_id: cliente_id ? parseInt(cliente_id) : null,
                     usuario_id: parseInt(usuario_id),
                     empresa_id: parseInt(empresa_id),
-                    valor_total: totalVenda,
+                    valor_total: valorFinalVenda,
+                    desconto: valorDesconto,
                     forma_pagamento,
                     status: 'concluida',
                     produtos_vendas: {
@@ -146,7 +150,7 @@ const registrarVenda = async (req, res) => {
                     tipo: 'entrada',
                     categoria: 'Venda',
                     descricao: `Venda via PDV #${novaVenda.id}`,
-                    valor: totalVenda,
+                    valor: valorFinalVenda,
                     forma_pagamento: forma_pagamento,
                     empresa_id: parseInt(empresa_id),
                     venda_id: novaVenda.id

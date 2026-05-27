@@ -3,7 +3,7 @@ const { prisma } = require('../config/database');
 // 1. CREATE - Cadastrar Serviço
 const criarServico = async (req, res) => {
     try {
-        const { descricao, preco_custo, preco_venda, status, observacoes, cliente_id } = req.body;
+        const { descricao, produto, preco_custo, preco_venda, status, observacoes, cliente_id } = req.body;
         const empresa_id = req.user.empresa_id;
 
         if (!descricao) {
@@ -34,6 +34,7 @@ const criarServico = async (req, res) => {
         const novoServico = await prisma.servicos.create({
             data: {
                 descricao,
+                produto: produto || null,
                 preco: parseFloat(preco_venda),
                 preco_custo: parseFloat(preco_custo),
                 preco_venda: parseFloat(preco_venda),
@@ -125,7 +126,7 @@ const obterServicoPorId = async (req, res) => {
 
 // 4. UPDATE - Atualizar Serviço
 const atualizarServico = async (req, res) => {
-    const { descricao, preco_custo, preco_venda, status, observacoes, cliente_id } = req.body;
+    const { descricao, produto, preco_custo, preco_venda, status, observacoes, cliente_id } = req.body;
     const empresa_id = req.user.empresa_id;
 
     try {
@@ -169,6 +170,7 @@ const atualizarServico = async (req, res) => {
             where: { id: parseInt(req.params.id) },
             data: {
                 descricao,
+                produto: produto || null,
                 preco: parseFloat(preco_venda),
                 preco_custo: parseFloat(preco_custo),
                 preco_venda: parseFloat(preco_venda),
